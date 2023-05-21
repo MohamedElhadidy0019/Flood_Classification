@@ -2,3 +2,4 @@
 *.jpg
 dataset.zip
 segmentation-data
+*.pth
