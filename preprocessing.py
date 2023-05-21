@@ -30,6 +30,9 @@ def resize_img(img, W, H):
 
 # %%
 def read_resize_dataset(pth='./dataset/', pth2=None, W=None, H=None, Debug=False):
+    #
+    if not Debug:
+        raise Exception('This is poorly designed, too much time')
     # read images
     pth = './dataset/'
     if W is None and H is None:
@@ -89,20 +92,9 @@ def read_resize_dataset(pth='./dataset/', pth2=None, W=None, H=None, Debug=False
 
 
 # %%
+# Optimzed version
 def read_dataset(pth='./dataset/'):
-    # read images
-    flooded = []
-    non_flooded = []
-    for fil in os.listdir(pth + 'flooded/'):
-        img = io.imread(pth+'flooded/'+fil)
-        flooded.append(img)
-    for fil in os.listdir(pth + 'non-flooded/'):
-        img = io.imread(pth+'non-flooded/'+fil)
-        non_flooded.append(img)
-    #
-    X = np.array(flooded + non_flooded)
-    y = np.array([1]*len(flooded) + [0]*len(non_flooded))
-    return X, y
+    return np.array([io.imread(pth+F+fil) for F in ['flooded/', 'non-flooded/'] for fil in os.listdir(pth + F)]), np.array([1]*len(os.listdir(pth+'flooded/')) + [0]*len(os.listdir(pth+'non-flooded/')))
 
 # %%
 ## more preprocessing
