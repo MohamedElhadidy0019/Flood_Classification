@@ -43,32 +43,51 @@ import preprocessing as pre
 #   - Waterline using color detection (HSV, RGB, etc)
 
 # %%
-def HoG(img):
-    return feature.hog(img, orientations=8, pixels_per_cell=(16, 16), cells_per_block=(1, 1), visualize=False)
+def HoG(img_gray, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(3, 3), visualize=False):
+    return feature.hog(img_gray, orientations=orientations, pixels_per_cell=pixels_per_cell, cells_per_block=cells_per_block, visualize=visualize)
 
 # %%
-def LBP(img):
-    return feature.local_binary_pattern(img, 8, 1, method='uniform')
+def LBP(img_gray, radius=3, n_points=None):
+    n_points = 8 * radius
+    lbp = feature.local_binary_pattern(img_gray, n_points, radius, method='uniform')
+    hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, n_points + 3), range=(0, n_points + 2))
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
+    return hist
 
 # %%
-def GLCM(img):
-    return feature.graycomatrix(img, [1], [0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True)
+def GLCM(img_gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True, CONTRAST=True, CORRELATION=True, DISSIMILARITY=False, HOMOGENEITY=False, ENERGY=False, ASM=False):
+    glcm = feature.graycomatrix(img_gray, distances=distances, angles=angles, levels=levels, symmetric=symmetric, normed=normed)
+    #
+    features = np.array([])
+    if CONTRAST:
+        features = np.concatenate((features, feature.greycoprops(glcm, 'contrast').ravel()))
+    if CORRELATION:
+        features = np.concatenate((features, feature.greycoprops(glcm, 'correlation').ravel()))
+    if DISSIMILARITY:
+        features = np.concatenate((features, feature.greycoprops(glcm, 'dissimilarity').ravel()))
+    if HOMOGENEITY:
+        features = np.concatenate((features, feature.greycoprops(glcm, 'homogeneity').ravel()))
+    if ENERGY:
+        features = np.concatenate((features, feature.greycoprops(glcm, 'energy').ravel()))
+    if ASM:
+        features = np.concatenate((features, feature.greycoprops(glcm, 'ASM').ravel()))
+    return features
 
 # %%
 # Color Histogram
-def color_histogram(img_hsv):
-    hist, bins = exposure.histogram(img_hsv[:, :, 0], nbins=180)
+def color_histogram(img_hsv, bins=16):
+    hist, bins = exposure.histogram(img_hsv[:, :, 0], nbins=bins)
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
     return hist
 
 # %%
 # Color Moments
-def color_moments(img_hsv):
-    # use measure
-    moments = measure.moments(img_hsv[:, :, 0], order=3)
-    central_moments = measure.moments_central(moments)
-    normalized_moments = measure.moments_normalized(central_moments)
-    hu_moments = measure.moments_hu(normalized_moments)
-    return hu_moments
+def color_moments(img_lab):
+    means = np.mean(img_lab, axis=(0, 1))
+    stds = np.std(img_lab, axis=(0, 1))
+    return np.concatenate((means, stds))
 
 # %%
 # watershed
