@@ -17,6 +17,8 @@ from skimage import morphology
 from skimage import measure
 from skimage import exposure
 from skimage import segmentation
+# PCA
+from sklearn.decomposition import PCA
 # from skimage import transform
 # from skimage import util
 
@@ -44,8 +46,10 @@ import preprocessing as pre
 #   - Waterline using color detection (HSV, RGB, etc)
 
 # %%
-def getHoG(img_gray, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(3, 3), visualize=False):
-    return feature.hog(img_gray, orientations=orientations, pixels_per_cell=pixels_per_cell, cells_per_block=cells_per_block, visualize=visualize)
+def getHoG(img_gray, orientations=8):
+    # print(ppc, cpb)
+    hogg = feature.hog(img_gray, orientations=orientations, pixels_per_cell=(128, 128), cells_per_block=(2, 2), visualize=False)
+    return hogg
 
 # %%
 def getLBP(img_gray, radius=3, n_points=None):
@@ -57,7 +61,7 @@ def getLBP(img_gray, radius=3, n_points=None):
     return hist
 
 # %%
-def getGLCM(img_gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True, CONTRAST=True, CORRELATION=True, DISSIMILARITY=False, HOMOGENEITY=False, ENERGY=False, ASM=False):
+def getGLCM(img_gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True, CONTRAST=True, CORRELATION=True, DISSIMILARITY=True, HOMOGENEITY=True, ENERGY=True, ASM=True):
     glcm = feature.graycomatrix(img_gray, distances=distances, angles=angles, levels=levels, symmetric=symmetric, normed=normed)
     #
     features = np.array([])
@@ -76,13 +80,23 @@ def getGLCM(img_gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], le
     return features
 
 # %%
-# Color Histogram
-def color_histogram(img_hsv, bins=16):
+def color_histogram_hsv(img_hsv, bins=32):
     hist, bins = exposure.histogram(img_hsv[:, :, 0], nbins=bins)
     hist = hist.astype("float")
     hist /= (hist.sum() + 1e-7)
     return hist
 
+def color_histogram_rgb(img, bins=32):
+    hist, bins = exposure.histogram(img, nbins=bins)
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
+    return hist
+
+def color_histogram_lab(img_lab, bins=32):
+    hist, bins = exposure.histogram(img_lab, nbins=bins)
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
+    return hist
 # %%
 # Color Moments
 def color_moments(img):
@@ -148,11 +162,13 @@ def extract_features(img, HOG=False, LBP=False, GLCM=False, COLOR_HISTOGRAM=Fals
     if GLCM:
         features = np.concatenate((features, getGLCM(img_gray).flatten()))
     if COLOR_HISTOGRAM:
-        features = np.concatenate((features, color_histogram(img_hsv)))
+        # features = np.concatenate((features, color_histogram_rgb(img))) # gives unequal vectors
+        features = np.concatenate((features, color_histogram_hsv(img_hsv)))
+        features = np.concatenate((features, color_histogram_lab(img_lab)))
     if COLOR_MOMENTS:
         features = np.concatenate((features, color_moments(img_lab).flatten()))
-        features = np.concatenate((features, color_moments(img_hsv).flatten()))
-        features = np.concatenate((features, color_moments(img).flatten()))
+        # features = np.concatenate((features, color_moments(img_hsv).flatten()))
+        # features = np.concatenate((features, color_moments(img).flatten()))
     if COLOR_CORRELOGRAM:
         features = np.concatenate((features, color_correlogram(img_lab)))
     if GABOR:
