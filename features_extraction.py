@@ -12,9 +12,12 @@ from skimage import color
 # LBP
 # GLCM
 from skimage import feature
+from skimage import filters
+from skimage import morphology
+from skimage import measure
+from skimage import exposure
 # from skimage import transform
 # from skimage import util
-# from skimage import filters
 
 import preprocessing as pre
 
@@ -40,14 +43,6 @@ import preprocessing as pre
 #   - Waterline using color detection (HSV, RGB, etc)
 
 # %%
-X, y = pre.read_dataset(pth='./dataset64/')
-print(X.shape, y.shape)
-
-# %%
-for x in X:
-    x = pre.fix_illumination(pre.fix_contrast(x))
-
-# %%
 def HoG(img):
     return feature.hog(img, orientations=8, pixels_per_cell=(16, 16), cells_per_block=(1, 1), visualize=False)
 
@@ -60,39 +55,62 @@ def GLCM(img):
     return feature.graycomatrix(img, [1], [0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True)
 
 # %%
-def extract_features(img):
+# Color Histogram
+def color_histogram(img_hsv):
+    hist, bins = exposure.histogram(img_hsv[:, :, 0], nbins=180)
+    return hist
+
+# %%
+# Color Moments
+def color_moments(img_hsv):
+    # use measure
+    moments = measure.moments(img_hsv[:, :, 0], order=3)
+    central_moments = measure.moments_central(moments)
+    normalized_moments = measure.moments_normalized(central_moments)
+    hu_moments = measure.moments_hu(normalized_moments)
+    return hu_moments
+
+# %%
+# watershed
+def watershed(img):
+    return filters.rank.gradient(img, morphology.disk(5))
+
+# %%
+# Canny
+def canny(img):
+    return feature.canny(img, sigma=3)
+
+# %%
+# Sobel
+def sobel(img):
+    return filters.sobel(img)
+
+# %%
+def extract_features(img, HOG=False, LBP=False, GLCM=False, color_histogram=False, color_moments=False, watershed=False, canny=False, sobel=False):
     gray_img = color.rgb2gray(img)
     # convert to uint8
     gray_img = (gray_img * 255).astype(np.uint8)
-    return np.concatenate((HoG(gray_img), LBP(gray_img).flatten(), GLCM(gray_img).flatten()))
+    # convert to HSV
+    img_hsv = color.rgb2hsv(img)
+    #
+    features = np.array([])
+    if HOG:
+        features = np.concatenate((features, HoG(gray_img)))
+    if LBP:
+        features = np.concatenate((features, LBP(gray_img).flatten()))
+    if GLCM:
+        features = np.concatenate((features, GLCM(gray_img).flatten()))
+    if color_histogram:
+        features = np.concatenate((features, color_histogram(img_hsv).flatten()))
+    if color_moments:
+        features = np.concatenate((features, color_moments(img_hsv).flatten()))
+    if watershed:
+        features = np.concatenate((features, watershed(gray_img).flatten()))
+    if canny:
+        features = np.concatenate((features, canny(gray_img).flatten()))
+    if sobel:
+        features = np.concatenate((features, sobel(gray_img).flatten()))
+    #
+    return features
 
-# %%
-# Extract features
-X_features = np.array([extract_features(x) for x in tqdm.tqdm(X)])
-print(X_features.shape)
 
-# %%
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from sklearn.svm import SVC
-from sklearn.naive_bayes import GaussianNB
-
-# %%
-# Train test split
-X_train, X_test, y_train, y_test = train_test_split(X_features, y, test_size=0.2, random_state=42)
-
-# %%
-# Train model
-def test_model(model, X_train, y_train, X_test, y_test):
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    print('Accuracy: ', accuracy_score(y_test, y_pred))
-
-# %%
-clf = SVC(kernel='linear', C=1.0, random_state=42)
-# test_model(clf, X_train, y_train, X_test, y_test)
-
-# %%
-# Naive Bayes
-clf = GaussianNB()
-test_model(clf, X_train, y_train, X_test, y_test)
