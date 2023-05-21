@@ -43,11 +43,11 @@ import preprocessing as pre
 #   - Waterline using color detection (HSV, RGB, etc)
 
 # %%
-def HoG(img_gray, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(3, 3), visualize=False):
+def getHoG(img_gray, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(3, 3), visualize=False):
     return feature.hog(img_gray, orientations=orientations, pixels_per_cell=pixels_per_cell, cells_per_block=cells_per_block, visualize=visualize)
 
 # %%
-def LBP(img_gray, radius=3, n_points=None):
+def getLBP(img_gray, radius=3, n_points=None):
     n_points = 8 * radius
     lbp = feature.local_binary_pattern(img_gray, n_points, radius, method='uniform')
     hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, n_points + 3), range=(0, n_points + 2))
@@ -56,22 +56,22 @@ def LBP(img_gray, radius=3, n_points=None):
     return hist
 
 # %%
-def GLCM(img_gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True, CONTRAST=True, CORRELATION=True, DISSIMILARITY=False, HOMOGENEITY=False, ENERGY=False, ASM=False):
+def getGLCM(img_gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], levels=256, symmetric=True, normed=True, CONTRAST=True, CORRELATION=True, DISSIMILARITY=False, HOMOGENEITY=False, ENERGY=False, ASM=False):
     glcm = feature.graycomatrix(img_gray, distances=distances, angles=angles, levels=levels, symmetric=symmetric, normed=normed)
     #
     features = np.array([])
     if CONTRAST:
-        features = np.concatenate((features, feature.greycoprops(glcm, 'contrast').ravel()))
+        features = np.concatenate((features, feature.graycoprops(glcm, 'contrast').ravel()))
     if CORRELATION:
-        features = np.concatenate((features, feature.greycoprops(glcm, 'correlation').ravel()))
+        features = np.concatenate((features, feature.graycoprops(glcm, 'correlation').ravel()))
     if DISSIMILARITY:
-        features = np.concatenate((features, feature.greycoprops(glcm, 'dissimilarity').ravel()))
+        features = np.concatenate((features, feature.graycoprops(glcm, 'dissimilarity').ravel()))
     if HOMOGENEITY:
-        features = np.concatenate((features, feature.greycoprops(glcm, 'homogeneity').ravel()))
+        features = np.concatenate((features, feature.graycoprops(glcm, 'homogeneity').ravel()))
     if ENERGY:
-        features = np.concatenate((features, feature.greycoprops(glcm, 'energy').ravel()))
+        features = np.concatenate((features, feature.graycoprops(glcm, 'energy').ravel()))
     if ASM:
-        features = np.concatenate((features, feature.greycoprops(glcm, 'ASM').ravel()))
+        features = np.concatenate((features, feature.graycoprops(glcm, 'ASM').ravel()))
     return features
 
 # %%
@@ -105,7 +105,7 @@ def sobel(img):
     return filters.sobel(img)
 
 # %%
-def extract_features(img, HOG=False, LBP=False, GLCM=False, color_histogram=False, color_moments=False, watershed=False, canny=False, sobel=False):
+def extract_features(img, HOG=False, LBP=False, GLCM=False, COLOR_HISTOGRAM=False, COLOR_MOMENTS=False, WATERSHED=False, CANNY=False, SOBEL=False):
     gray_img = color.rgb2gray(img)
     # convert to uint8
     gray_img = (gray_img * 255).astype(np.uint8)
@@ -114,22 +114,20 @@ def extract_features(img, HOG=False, LBP=False, GLCM=False, color_histogram=Fals
     #
     features = np.array([])
     if HOG:
-        features = np.concatenate((features, HoG(gray_img)))
+        features = np.concatenate((features, getHoG(gray_img)))
     if LBP:
-        features = np.concatenate((features, LBP(gray_img).flatten()))
+        features = np.concatenate((features, getLBP(gray_img).flatten()))
     if GLCM:
-        features = np.concatenate((features, GLCM(gray_img).flatten()))
-    if color_histogram:
+        features = np.concatenate((features, getGLCM(gray_img).flatten()))
+    if COLOR_HISTOGRAM:
         features = np.concatenate((features, color_histogram(img_hsv).flatten()))
-    if color_moments:
+    if COLOR_MOMENTS:
         features = np.concatenate((features, color_moments(img_hsv).flatten()))
-    if watershed:
+    if WATERSHED:
         features = np.concatenate((features, watershed(gray_img).flatten()))
-    if canny:
+    if CANNY:
         features = np.concatenate((features, canny(gray_img).flatten()))
-    if sobel:
+    if SOBEL:
         features = np.concatenate((features, sobel(gray_img).flatten()))
     #
     return features
-
-
