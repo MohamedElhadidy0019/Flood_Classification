@@ -402,7 +402,7 @@ def isodata_classification(img, parameters=None):
     img_flat = img.flatten()
     clusters_list = np.arange(k)  # number of clusters availables
 
-    print("Isodata(info): Starting algorithm with %s classes" % k)
+    # print("Isodata(info): Starting algorithm with %s classes" % k)
     centers = initial_clusters(img_flat, k, "linspace")
 
     for iter in range(0, I):
@@ -435,7 +435,7 @@ def isodata_classification(img, parameters=None):
 
 #        take_snapshot(img_class_flat.reshape(N, M), iteration_step=iter)
 ###############################################################################
-    print("Isodata(info): Finished with %s classes" % k)
-    print("Isodata(info): Number of Iterations: %s" % (iter + 1))
+    # print("Isodata(info): Finished with %s classes" % k)
+    # print("Isodata(info): Number of Iterations: %s" % (iter + 1))
 
     return img_class_flat.reshape(N, M)
