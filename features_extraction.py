@@ -16,6 +16,7 @@ from skimage import filters
 from skimage import morphology
 from skimage import measure
 from skimage import exposure
+from skimage import segmentation
 # from skimage import transform
 # from skimage import util
 
@@ -84,50 +85,83 @@ def color_histogram(img_hsv, bins=16):
 
 # %%
 # Color Moments
-def color_moments(img_lab):
-    means = np.mean(img_lab, axis=(0, 1))
-    stds = np.std(img_lab, axis=(0, 1))
+def color_moments(img):
+    means = np.mean(img, axis=(0, 1))
+    stds = np.std(img, axis=(0, 1))
     return np.concatenate((means, stds))
 
 # %%
 # watershed
-def watershed(img):
-    return filters.rank.gradient(img, morphology.disk(5))
-
+def watershed(img_lab):
+    edges = feature.canny(img_lab[..., 0], sigma=1)
+    markers = segmentation.watershed(edges, markers=500, compactness=0.001)
+    # Compute the histogram of marker labels
+    hist, bin_edges = np.histogram(markers, bins=16, range=(0, np.max(markers)))
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
+    return hist
 # %%
 # Canny
-def canny(img):
-    return feature.canny(img, sigma=3)
+def canny(img_gray):
+    raise NotImplementedError
 
 # %%
 # Sobel
-def sobel(img):
-    return filters.sobel(img)
+def sobel(img_gray):
+    raise NotImplementedError
 
 # %%
-def extract_features(img, HOG=False, LBP=False, GLCM=False, COLOR_HISTOGRAM=False, COLOR_MOMENTS=False, WATERSHED=False, CANNY=False, SOBEL=False):
-    gray_img = color.rgb2gray(img)
-    # convert to uint8
-    gray_img = (gray_img * 255).astype(np.uint8)
-    # convert to HSV
+def color_correlogram(img_lab, d=1, levels=256):
+    correlogram = feature.local_binary_pattern(img_lab[..., 0], P=24, R=3)
+    # Compute the histogram of correlogram values
+    hist, bin_edges = np.histogram(correlogram, bins=16, range=(0, np.max(correlogram)))
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-7)
+    return hist
+
+# %% 
+def gabor(img_gray):
+    ret = []
+    for freq in [.1, .2, .6]:
+        vec = filters.gabor(img_gray, frequency=freq)
+        hist, _ = np.histogram(vec, bins=16, range=(0, np.max(vec)))
+        hist = hist.astype("float")
+        hist /= (hist.sum() + 1e-7)
+        ret.append(hist)
+    #
+    return np.array(ret).ravel()
+# %%
+def extract_features(img, HOG=False, LBP=False, GLCM=False, COLOR_HISTOGRAM=False, COLOR_MOMENTS=False,
+                     COLOR_CORRELOGRAM=False, GABOR=False, WATERSHED=False, CANNY=False, SOBEL=False):
+    # Grayscale
+    img_gray = (color.rgb2gray(img) *255).astype(np.uint8)
+    # HSV
     img_hsv = color.rgb2hsv(img)
+    # LAB
+    img_lab = color.rgb2lab(img)
     #
     features = np.array([])
     if HOG:
-        features = np.concatenate((features, getHoG(gray_img)))
+        features = np.concatenate((features, getHoG(img_gray)))
     if LBP:
-        features = np.concatenate((features, getLBP(gray_img).flatten()))
+        features = np.concatenate((features, getLBP(img_gray)))
     if GLCM:
-        features = np.concatenate((features, getGLCM(gray_img).flatten()))
+        features = np.concatenate((features, getGLCM(img_gray).flatten()))
     if COLOR_HISTOGRAM:
-        features = np.concatenate((features, color_histogram(img_hsv).flatten()))
+        features = np.concatenate((features, color_histogram(img_hsv)))
     if COLOR_MOMENTS:
+        features = np.concatenate((features, color_moments(img_lab).flatten()))
         features = np.concatenate((features, color_moments(img_hsv).flatten()))
+        features = np.concatenate((features, color_moments(img).flatten()))
+    if COLOR_CORRELOGRAM:
+        features = np.concatenate((features, color_correlogram(img_lab)))
+    if GABOR:
+        features = np.concatenate((features, gabor(img_gray)))
     if WATERSHED:
-        features = np.concatenate((features, watershed(gray_img).flatten()))
+        features = np.concatenate((features, watershed(img_lab)))
     if CANNY:
-        features = np.concatenate((features, canny(gray_img).flatten()))
+        features = np.concatenate((features, canny(img_gray)))
     if SOBEL:
-        features = np.concatenate((features, sobel(gray_img).flatten()))
+        features = np.concatenate((features, sobel(img_gray)))
     #
     return features
